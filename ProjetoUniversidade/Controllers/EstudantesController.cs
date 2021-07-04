@@ -17,9 +17,42 @@ namespace ProjetoUniversidade.Controllers
         }
 
         // GET: Estudantes
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(string ordem, string filtro)
         {
-            return View(await _context.Estudantes.ToListAsync());
+            ViewData["NomeParm"] = string.IsNullOrEmpty(ordem) ? "nome_desc" : "";
+            ViewData["DataParm"] = ordem == "Data" ? "data_desc" : "Data";
+            ViewData["filtro"] = filtro;
+
+            var estudantes = from est in _context.Estudantes
+                             select est;
+
+            if (!string.IsNullOrEmpty(filtro))
+            {
+                estudantes = estudantes.Where(s => s.SobreNome.Contains(filtro) || s.Nome.Contains(filtro));
+            }
+
+            switch (ordem)
+            {
+                case "nome_desc":
+                    estudantes = estudantes.OrderByDescending(est => est.SobreNome);
+                    break;
+
+                case "Data":
+                    estudantes = estudantes.OrderBy(est => est.DataMatricula);
+                    break;
+
+                case "data_desc":
+                    estudantes = estudantes.OrderByDescending(est => est.DataMatricula);
+                    break;
+
+                default:
+                    estudantes = estudantes.OrderBy(est => est.SobreNome);
+                    break;
+            }
+
+            //return View(await _context.Estudantes.ToListAsync());
+            return View(await estudantes.AsNoTracking().ToListAsync());
+
         }
 
         // GET: Estudantes/Details/5
@@ -83,7 +116,6 @@ namespace ProjetoUniversidade.Controllers
             }
 
             var estudante = await _context.Estudantes.FindAsync(id);
-
             if (estudante == null)
             {
                 return NotFound();
@@ -98,11 +130,13 @@ namespace ProjetoUniversidade.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> EditPost(int? id)
         {
-            if (id != null)
+            if (id == null)
             {
                 return NotFound();
             }
 
+            /*As mudanças feitas no código implementam uma prática recomendada de segurança para evitar a sobreposição de post. O código gerado pelo Scaffolding usava o atributo Bind e adicionava a entidade criada pelo model binder ao conjunto de entidades com um sinalizador Modified. Esse código não é recomendado para muitos cenários porque o atributo Bind limpa quaisquer dados pré-existentes em campos não listados no parâmetro Include.
+            O novo código lê a entidade existente e chama TryUpdateModel para atualizar os campos na entidade recuperada com base na entrada do usuário nos dados do formulário postados.*/
             var atualizarEstudante = await _context.Estudantes.SingleOrDefaultAsync(s => s.EstudanteID == id);
 
             if (await TryUpdateModelAsync<Estudante>(atualizarEstudante, "", s => s.Nome, s => s.SobreNome, s => s.DataMatricula))
@@ -117,9 +151,9 @@ namespace ProjetoUniversidade.Controllers
                     ModelState.AddModelError("", "It was not possible to save" + "Try again, if the problem persists" + "please contact your system administrator");
                 }
             }
-
             
             return View(atualizarEstudante);
+
         }
 
         // GET: Estudantes/Delete/5
@@ -146,6 +180,7 @@ namespace ProjetoUniversidade.Controllers
             }
 
             return View(estudante);
+
         }
 
         // POST: Estudantes/Delete/5
